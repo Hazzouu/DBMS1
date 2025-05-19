@@ -148,13 +148,14 @@ public class DBApp {
 	        }
 	    }
 	    
-	    // Rest of your processing logic remains the same...
+	    // Process indexed columns first
 	    BitSet resultBits = null;
 	    int indexedSelectionCount = 0;
 	    
 	    if (!indexedCols.isEmpty()) {
 	        resultBits = new BitSet();
-	        resultBits.set(0, calculateTotalRecords(tableName)); // Initialize all bits to 1
+	        int totalRecords = calculateTotalRecords(tableName);
+	        resultBits.set(0, totalRecords); // Initialize all bits to 1
 	        
 	        for (String col : indexedCols) {
 	            BitmapIndex index = FileManager.loadTableIndex(tableName, col);
@@ -201,7 +202,7 @@ public class DBApp {
 	        result = table.select(cols, vals);
 	    }
 	    
-	    // Modified trace message generation
+	    // Generate trace message
 	    StringBuilder traceMsg = new StringBuilder();
 	    traceMsg.append("Select index condition:")
 	            .append(Arrays.toString(cols))
@@ -209,7 +210,6 @@ public class DBApp {
 	            .append(Arrays.toString(vals));
 	    
 	    if (!indexedCols.isEmpty()) {
-	        // Sort the indexed columns before adding to trace
 	        String[] sortedIndexedCols = indexedCols.toArray(new String[0]);
 	        Arrays.sort(sortedIndexedCols);
 	        traceMsg.append(", Indexed columns: ")
@@ -218,26 +218,24 @@ public class DBApp {
 	               .append(indexedSelectionCount);
 	    }
 	    
-	    // Always show non-indexed columns when they exist
 	    if (!nonIndexedCols.isEmpty()) {
-	        // Sort the non-indexed columns before adding to trace to match test expectations
 	        String[] sortedNonIndexedCols = nonIndexedCols.toArray(new String[0]);
 	        Arrays.sort(sortedNonIndexedCols);
 	        traceMsg.append(", Non Indexed: ")
 	               .append(Arrays.toString(sortedNonIndexedCols));
 	    }
 	    
-	    // Only add "No indexed columns used" if there are no indexed columns AND no non-indexed columns
-	    // This should not happen in normal cases since we're dealing with actual query conditions
 	    if (indexedCols.isEmpty() && nonIndexedCols.isEmpty()) {
 	        traceMsg.append(", No indexed columns used");
 	    }
 	    
+	    final int finalCount = result.size();
 	    traceMsg.append(", Final count: ")
-	           .append(result.size())
+	           .append(finalCount)
 	           .append(", execution time (mil):")
 	           .append(System.currentTimeMillis() - startTime);
 	    
+	    // Update table state atomically
 	    table.getTrace().add(traceMsg.toString());
 	    table.addInsertTrace(traceMsg.toString());
 	    FileManager.storeTable(tableName, table);
